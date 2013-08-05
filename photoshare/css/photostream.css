@@ -1,0 +1,35 @@
+.photostream-album {
+  float : left;
+  width : 150px;
+  height :190px;
+  margin :10px;
+  text-align:center;
+  border : 2px solid #A9A9A9; 
+}
+
+.photostream-premium-album {
+  border : 2px solid #A9A9A9; 
+  float : left;
+  width : 150px;
+  height : 190px;
+  margin :10px;
+  text-align:center;
+  background-color: #DDD;
+}
+
+.photostream-title {
+  font-weight : bold;
+  font-size : 15px;
+}
+
+.photostream-user-name, .photostream-report-spam {
+  font-style : italic;
+}
+
+.photostream-image {
+  padding :10px;
+}
+
+.photostream-clear {
+ clear : both;
+}

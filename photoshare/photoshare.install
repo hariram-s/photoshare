@@ -1,0 +1,241 @@
+<?php
+/**
+ * @file
+ * Install, schema and uninstall functions for the photoshare module.
+ */
+
+/**
+ * Implements hook_install().
+ *
+ */
+function photoshare_install() {
+  // To get all the user roles.
+  $roles = user_roles(TRUE);
+  $photographer_id = '';
+  $premium_id = '';
+  // To check whether the user exists or not
+  if (!in_array('photographer', $roles)) {
+    // Creating user role using object method.
+    $role1 = new stdClass();
+    $role1->name = 'photographer';
+    user_role_save($role1);
+    $photographer_role = user_role_load_by_name('photographer');
+    $photographer_id = $photographer_role->rid;
+  }
+
+  // To check whether the user exists or not
+  if (!in_array('premium_user', $roles)) {
+    // Creating user role using object method.
+    $role2 = new stdClass();
+    $role2->name = 'premium_user';
+    user_role_save($role2);
+    $premium_role = user_role_load_by_name('premium_user');
+    $premium_id = $premium_role->rid;
+  }
+
+  $photoshare_roles = array(
+    $premium_id => 'premium user',
+    $photographer_id => 'photographer user',
+  );
+  //dpm($photoshare_roles);it 
+  // Setting the variable photoshare_user_roles.
+  // To get it as a checkbox in module file.
+  variable_set('photoshare_user_roles', $photoshare_roles);
+
+  // To get the password textbox.
+  variable_set('user_email_verification', FALSE);
+
+  // To create the photoshare directory in the public file folder
+  $directory = "public://photoshare";
+  file_prepare_directory($directory, FILE_CREATE_DIRECTORY);
+
+  // To create the private directory inside the photoshare directory
+  $directory = "public://photoshare/private";
+  file_prepare_directory($directory, FILE_CREATE_DIRECTORY);
+
+  // To create the public directory inside the photoshare directory
+  $directory = "public://photoshare/public";
+  file_prepare_directory($directory, FILE_CREATE_DIRECTORY);
+  
+  $private_directory = 'public://photoshare/private';
+  file_create_htaccess($private_directory);
+}
+
+/**
+ * Implements hook_enable().
+ */
+function photoshare_enable() {
+  $vocabulary = taxonomy_vocabulary_load(variable_get('photoshare_categories_vocabulary', 0));
+  if (!$vocabulary) {
+    $edit = array(
+      'name' => t('Categories'),
+      'machine_name' => 'photoshare_categories',
+      'description' => t('Photoshare categories vocabulary'),
+      'hierarchy' => 1,
+      'module' => 'photoshare',
+    );
+    $vocabulary = (object) $edit;
+    taxonomy_vocabulary_save($vocabulary);
+    variable_set('photoshare_categories_vocabulary', $vocabulary->vid);
+  }
+}
+
+/**
+ * Implements hook_schema().
+ */
+function photoshare_schema() {
+  // Creating the table ps_image_downloads.
+  // To store the records of downloaded images.
+  $schema['ps_image_downloads'] = array(
+    'description' => 'A table to store the download time and download size of an image.',
+    'fields' => array(
+      'id' => array(
+        'description' => 'The primary identifier for a node.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'user_id' => array(
+        'description' => 'This column simply holds user_id',
+        'type' => 'int',
+        'length' => 10,
+        'not null' => TRUE,
+      ),
+      'fid' => array(
+        'description' => 'This column simply holds fid',
+        'type' => 'int',
+        'length' => 10,
+        'not null' => TRUE,
+      ),
+      'download_time' => array(
+        'description' => 'This column simply holds download time',
+        'type' => 'int',
+        'length' => 50,
+        'not null' => TRUE,
+      ),
+      'download_size' => array(
+        'description' => 'This column simply holds download size',
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('id'),
+  );
+
+  // Creating a table called ps_spam_reports.
+  // To store the spam reports about the images.
+  $schema['ps_spam_reports'] = array(
+    'description' => 'A table to store the spam reports of an image.',
+    'fields' => array(
+      'id' => array(
+        'description' => 'The primary identifier for a node.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'user_id' => array(
+        'description' => 'This column simply holds user id',
+        'type' => 'int',
+        'length' => 10,
+        'not null' => TRUE,
+      ),
+      'nid' => array(
+        'description' => 'This column simply holds file nid',
+        'type' => 'int',
+        'length' => 10,
+        'not null' => TRUE,
+      ),
+      'email' => array(
+        'description' => 'This column simply holds the email of anonymous user',
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+      ),
+      'comment' => array(
+        'description' => 'This column simply holds the comment for reports.',
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+      ),
+      'flag' => array(
+        'description' => 'This column holds the flag value for the report.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 1
+      ),
+    ),
+    'primary key' => array('id'),
+  );
+
+  // Creating a table called ps_spam_images.
+  // To store the spam reported images nid.
+  $schema['ps_spam_images'] = array(
+    'description' => 'A table to store the spam reports of an image.',
+    'fields' => array(
+      'id' => array(
+        'description' => 'The primary identifier for a node.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'nid' => array(
+        'description' => 'This column simply holds file nid',
+        'type' => 'int',
+        'length' => 10,
+        'not null' => TRUE,
+      ),
+      'status' => array(
+        'description' => 'This column holds the status of the image',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 1
+      ),
+    ),
+    'primary key' => array('id'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ *
+ * It's good to clean up after ourselves
+ */
+function photoshare_uninstall() {
+  // To Fetch the user role by role name
+  $photographer_role = user_role_load_by_name('photographer');
+  // To get the role id of the user.
+  $photographer_id = $photographer_role->rid;
+  $premium_role = user_role_load_by_name('premium_user');
+  $premium_id = $premium_role->rid;
+
+  $photographer_user_exists = 0;
+  $premium_user_exists = 0;
+
+  // To select the role id of all roles
+  $sql = "";
+  $sql = "SELECT rid FROM {users_roles}";
+  $roles = db_query($sql);
+
+  // To check whether the user already exists.
+  // If the user already exists and
+  // no user is on the same name then delete the user role.
+  foreach ($roles as $role) {
+    if ($role->rid == $photographer_id) {
+      $photographer_user_exists = 1;
+    }
+    if ($role->rid == $premium_id) {
+      $premium_user_exists = 1;
+    }
+  }
+  if ($photographer_user_exists != 1) {
+    user_role_delete('photographer');
+  }
+  if ($premium_user_exists != 1) {
+    user_role_delete('premium_user');
+  }
+}
+
+

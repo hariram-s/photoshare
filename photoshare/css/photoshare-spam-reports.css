@@ -1,0 +1,13 @@
+.photoshare-spam-reports .comments {
+  font-weight : bold;
+  font-size : 20px;
+  text-align:left;
+  color: red;
+}
+
+.photoshare-spam-reports .emails {
+  font-weight : italic;
+  font-size : 14px;
+  text-align: right;
+  color: black;
+}

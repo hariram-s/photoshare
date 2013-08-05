@@ -1,0 +1,12 @@
+name = Photoshare
+description = Enables the user to add images with different type users and manage it.
+core = 7.x
+package = Photoshare
+dependencies[] = photoshare_feature
+dependencies[] = trigger
+dependencies[] = user
+dependencies[] = search
+dependencies[] = block
+dependencies[] = image
+dependencies[] = taxonomy
+dependencies[] = file

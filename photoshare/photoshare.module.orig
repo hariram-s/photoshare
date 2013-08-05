@@ -1,0 +1,273 @@
+<?php
+/**
+ * @file
+ * photoshare module
+ */
+
+/**
+ *Implements hook_menu().
+ */
+function photoshare_menu() {
+  $items = array();
+  $items['photostream/%'] = array(
+      'title' => 'User Added Images',
+      'description' => '',
+      'page callback' => 'photoshare_photostream_page',
+      'page arguments' => array(1),
+      'access arguments' => array('user photostream page'),
+      'type' => MENU_NORMAL_ITEM,
+      'file' => 'photostream.inc'
+  );
+  $items['photostream/%/albums/%'] = array(
+      'title' => 'List Album Images',
+      'description' => 'Lists all the images in the particular album',
+      'page callback' => 'photoshare_user_album_images_page',
+      'page arguments' => array(1, 3),
+      'access arguments' => array('list album images'),
+      'type' => MENU_NORMAL_ITEM,
+      'file' => 'photostream.inc'
+  );
+  $items['photostream/categories/%'] = array(
+      'title' => 'List Category Images',
+      'description' => 'Lists all the images in the particular category',
+      'page callback' => 'photoshare_categories_images_page',
+      'page arguments' => array(2),
+      'access arguments' => array('list category images'),
+      'type' => MENU_NORMAL_ITEM,
+      'file' => 'photostream.inc'
+  );
+  return $items;
+}
+
+/**
+ *Implements hook_permission().
+ */
+function photoshare_permission() {
+ return array(
+  'user photostream page' => array(
+    'title' => t('User Added Images'),//t means the string is translatable
+    ),
+  'list album images' => array(
+    'title' => t('List Album Images'),
+    ),
+  'list category images' => array(
+    'title' => t('List Category Images'),
+    ),
+ );
+}
+
+/**
+ * Implements hook_form_alter function.
+ * It will alters the already existing table.
+ *
+ * @param array $form.
+ * @param array $form_state.
+ * @param string $form_id.
+ *
+ * @return array $form.
+ */
+function photoshare_form_alter(&$form, &$form_state, $form_id) {
+  $options = variable_get('photoshare_user_roles', array());
+  if ($form_id == 'user_register_form') {
+    $form['photoshare_user_roles'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Roles'),
+    );
+    $form['photoshare_user_roles']['photoshare_roles'] = array(
+      '#type' => 'checkboxes',
+      '#options' => $options,
+    );
+  }
+  return $form;
+}
+
+/**
+ * Implements hook_user_presave function.
+ *
+ * @param array $edit
+ * @param object $account
+ * @param array $category
+ */
+function photoshare_user_presave(&$edit, $account, $category) {
+  if (isset($account->is_new) && !empty($account->is_new)) {
+    // To get the roles present in the db table role.
+    $roles = user_roles(TRUE);
+
+    // array_filter to take the values which is checked.
+    $edit['photoshare_roles'] = array_filter($edit['photoshare_roles']);
+
+    // To combine two array which have same keys.
+    $roles_set = array_intersect_key((array) $roles, $edit['photoshare_roles']);
+
+    if (isset($edit['roles'])) {
+      foreach ($roles_set as $key => $role) {
+        unset($edit['roles'][$key]);
+      }
+       $edit['roles'] = array_diff_key($edit['roles'], $roles_set) + $roles_set;
+    }
+    else {
+      $edit['roles'] = $roles_set;
+    }
+  }
+}
+
+/**
+ * Implements hook_block_info
+ *
+ */
+function photoshare_block_info() {
+<<<<<<< HEAD
+  $blocks['photoshare'] = array(
+=======
+  $blocks['photostream'] = array(
+>>>>>>> 3d2406c00ed1fd954ff3f26296c0a01e39199f9a
+    'info' => t('Selected Images'),
+    'status' => TRUE,
+    'region' => 'sidebar_first',
+   );
+   dpm($blocks);
+   return $blocks; 
+   
+}
+
+/**
+ * Implements hook_block_view().
+ *
+ * Generates the administrator-defined blocks for display.
+ */
+function  photoshare_block_view($delta = '') {
+  dpm($delta);
+  //$block = array();
+  switch ($delta) {
+    case 'photostream':
+      $block['subject'] = t('Selected Images');
+      $block['content'] = _photoshare_selected_images();
+      break;
+  }
+  return $block;
+}
+
+
+/**
+ * Implements hook_block_configure().
+ */
+function photoshare_block_configure($delta) {
+  $form = array();
+  switch($delta) {
+<<<<<<< HEAD
+    case 'photoshare':
+      $form['photoshare_block'] = array(
+=======
+    case 'photostream':
+      $form['images_per_row'] = array(
+>>>>>>> 3d2406c00ed1fd954ff3f26296c0a01e39199f9a
+        '#type' => 'textfield',
+        '#title' => t('Block Column Configuration'),
+        '#size' => 3,
+        '#description' => t('Enter the no. of columns to show the images in a row'),
+        '#default_value' => variable_get('images_per_row', 2),
+      );
+      break;
+  }
+  return $form;
+}
+
+<<<<<<< HEAD
+/**
+ * Implementing hook_block_save().
+ */
+function photoshare_block_save($delta = '', $edit = array()) {
+  if ($delta == 'photoshare') {
+    variable_set('photoshare_block', $edit['photoshare_block']);
+  }
+  return;
+}
+
+/**
+ * Implements hook_block_view().
+ *
+ * Generates the administrator-defined blocks for display.
+ */
+function photoshare_block_view($delta = '') {
+  $block = array();
+  switch ($delta) {
+    case 'photoshare':
+      $block['subject'] = t('Selected Images');
+      $block['content'] = _photoshare_selected_images();
+      break;
+  }
+  return $block;
+}
+=======
+>>>>>>> 3d2406c00ed1fd954ff3f26296c0a01e39199f9a
+
+/**
+ * This function will get the selected images from the queue.
+ */
+function _photoshare_selected_images() {
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'node')
+    ->entityCondition('bundle', 'image')
+    ->propertyCondition('status', 1)
+    ->propertyOrderBy('created', 'DESC');
+  $result = $query->execute();
+  $nids = array_keys($result['node']);
+  $nodes = node_load_multiple($nids);
+  foreach ($nodes as $node) {
+    $item[] = array(
+      '#node' => $node,
+      '#theme'=> 'photostream_item',
+      '#attached' => array('css' => array(drupal_get_path('module', 'photoshare') . '/css/photostream.css')),
+    );
+  }
+  $output = array(
+    '#items' => $item,
+    '#theme' => 'photostream',
+  );
+  return $output;
+}
+
+/**
+ * Implements template_preprocess() to prepare variables for use inside the
+ * photostream-item.tpl.php template file.
+ *
+ * @see photostream-item.tpl.php
+ */
+function template_preprocess_photostream_item(&$variables) {
+  $node = $variables['element']['#node'];
+  $path = image_style_url('ps-thumbnail', $node->field_ps_image['und'][0]['uri']);
+  $variables['nid'] = $node->nid;
+  $variables['title'] = $node->title;
+  $variables['image'] = $path;
+  $variables['user_name'] = $node->name;
+  $variables['premium'] = '0';
+}
+
+/**
+ * Implements template_preprocess() to prepare variables for use inside the
+ * photostream.tpl.php template file.
+ *
+ * @see photostream.tpl.php
+ */
+function template_preprocess_photostream(&$variables) {
+  $items = $variables['photostream']['#items'];
+  $variables['items'] = $items;
+  $variables['title'] = 'Featured Images';
+  $variables['columns'] = variable_get('images_per_row', 2);
+}
+
+/**
+ * Implements hook_theme().
+ */
+function photoshare_theme() {
+  return array(
+    'photostream' => array(
+      'render element' => 'photostream',
+      'template' => 'photostream',
+    ),
+    'photostream_item' => array(
+      'render element' => 'element',
+      'template' => 'photostream-item',
+    ),
+  );
+}

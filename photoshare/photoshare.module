@@ -1,0 +1,765 @@
+<?php
+
+/**
+ * @file
+ * photoshare module
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function photoshare_menu() {
+  $items = array();
+  // Menu for photostream page.
+  $items['photostream'] = array(
+    'title' => 'All Images',
+    'description' => 'This page displays all the images in the website.',
+    'page callback' => 'photoshare_photostream_page',
+    'access arguments' => array('view photostream page'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'photostream.inc'
+  );
+  // Menu for photostream users page.
+  $items['photostream/%'] = array(
+    'title' => 'User Added Images',
+    'description' => '',
+    'page callback' => 'photoshare_user_photostream_page',
+    'page arguments' => array(1),
+    'access arguments' => array('user photostream page'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'photostream.inc'
+  );
+  // Menu for photostream users album page.
+  $items['photostream/%/album/%'] = array(
+    'title' => 'List Album Images',
+    'description' => 'Lists all the images in the particular album',
+    'page callback' => 'photoshare_album_photostream_page',
+    'page arguments' => array(1, 3),
+    'access arguments' => array('list album images'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'photostream.inc'
+  );
+  // Menu for photostream categories page.
+  $items['photostream/categories/%'] = array(
+    'title' => 'List Category Images',
+    'description' => 'Lists all the images in the particular category',
+    'page callback' => 'photoshare_category_photostream_page',
+    'page arguments' => array(2),
+    'access arguments' => array('list category images'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'photostream.inc'
+  );
+  // Menu for photoshare report spam page.
+  $items['photoshare/report_spam/%'] = array(
+    'title' => 'Report spam page',
+    'description' => 'Report, if the image is spam or abuse',
+    'page callback' => '_photoshare_report_spam_page',
+    'page arguments' => array(2),
+    'access arguments' => array('report spam page'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'photoshare-report.inc',
+  );
+  // Menu for photoshare download page.
+  $items['photoshare/download/%/%'] = array(
+    'title' => 'Download page',
+    'description' => 'To display the message for accesing premium album',
+    'page callback' => '_photoshare_download_page',
+    'page arguments' => array(2, 3),
+    'access arguments' => array('download page'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'photoshare-download.inc',
+  );
+  // Menu for photoshare upgrade page.
+  $items['photoshare/upgrade'] = array(
+    'title' => 'Upgrade page',
+    'description' => 'To display the message for accesing premium images',
+    'page callback' => '_photoshare_upgrade_page',
+    'access arguments' => array('photoshare upgrade page'),
+    'type' => MENU_CALLBACK,
+  );
+  // Menu for photoshare spams page.
+  $items['node/%/spams'] = array(
+    'title' => 'Spams',
+    'description' => 'To display spam comments for a particular image',
+    'page callback' => '_photoshare_spam_page',
+    'page arguments' => array(1),
+    'access arguments' => array('photoshare spam page'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'photoshare-manage-spams.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function photoshare_permission() {
+  return array(
+    'view photostream page' => array(
+      'title' => t('View photostream page'),
+      'description' => 'To allow access to view the photostream page',
+    ),
+    'user photostream page' => array(
+      'title' => t('Photostream user images'),
+      'description' => 'To allow access to view the users photostream page',
+    ),
+    'list album images' => array(
+      'title' => t('Photostream list album images'),
+      'description' => 'To allow access to view the users photostream albums page',
+    ),
+    'list category images' => array(
+      'title' => t('Photostream list category images'),
+      'description' => 'To allow access to categories photostream page',
+    ),
+    'report spam page' => array(
+      'title' => t('Photoshare report spam page'),
+      'description' => 'To allow access to report spam page',
+    ),
+    'download page' => array(
+      'title' => t('Photoshare download page'),
+      'description' => 'To allow acess to download the image',
+    ),
+    'photoshare upgrade page' => array(
+      'title' => t('Photoshare upgrade page'),
+      'description' => 'To allow access to view the upgrade page',
+    ),
+    'photoshare spam page' => array(
+      'title' => t('Photoshare spam management page'),
+      'description' => 'To manage the reports for a spammed image',
+    ),
+  );
+}
+
+/**
+ * Implements hook_entity_info_alter().
+ */
+function photoshare_entity_info_alter(&$info) {
+  if ($vid = variable_get('photoshare_categories_vocabulary', 0)) {
+    foreach (taxonomy_vocabulary_get_names() as $machine_name => $vocabulary) {  
+      if ($vid == $vocabulary->vid) {
+         $info['taxonomy_term']['bundles'][$machine_name]['uri callback'] = 'photoshare_uri';
+      }
+    }
+  }
+}
+   
+/**
+ * Entity URI callback used in photoshare_entity_info_alter().
+ */
+function photoshare_uri($photoshare) {
+  return array(
+    'path' => 'photostream/categories/' . $photoshare->name,
+  );
+}
+
+/**
+ * The function displays the images added by all users in a photostream
+ *
+ * @return function
+ *
+ * @see photostream.inc
+ */
+function photoshare_photostream_page() {
+  return photoshare_get_photostream();
+}
+
+/**
+ * The functon displays the images added by each user in a photostream
+ *
+ * @param string username
+ *
+ * @return function
+ *
+ * @see photostream.inc
+ */
+function photoshare_user_photostream_page($username = NULL) {
+  return photoshare_get_photostream($username); 
+}
+
+/**
+ * The functon displays the images added in a particular album in a photostream
+ *
+ * @param string username
+ * @param string album_id
+ *
+ * @return function
+ *
+ * @see photostream.inc
+ */
+function photoshare_album_photostream_page($username = NULL, $album_id = NULL) {
+  return photoshare_get_photostream($username, $album_id, NULL);
+}
+
+/**
+ * The functon displays the images added by each user in a photostream
+ *
+ * @param  string category_name
+ *
+ * @return function
+ */
+function photoshare_category_photostream_page($category_name = NULL) {
+  return photoshare_get_photostream(NULL, NULL, $category_name); 
+}
+
+/**
+ * The function displays a report spam page
+ *
+ * @return function.
+ *
+ * @see photoshare-report.inc
+ */
+function _photoshare_report_spam_page($nid) {
+  return _photoshare_report_spam($nid);
+}
+
+/**
+ * The function displays a download page
+ *
+ * @return function.
+ *
+ * @see photoshare-download.inc
+ */
+function _photoshare_download_page($nid, $style) {
+  return _photoshare_download($nid, $style);
+}
+
+/**
+ * The function displays a download page
+ *
+ * @return function.
+ *
+ * @see photoshare-manage-spams.inc
+ */
+function _photoshare_spam_page($nid) {
+  return _photoshare_spam_management($nid);
+}
+
+/**
+ * Function is used for displaying contents in the upgrade page.
+ */
+function _photoshare_upgrade_page() {
+  global $user;
+  $uid = $user->uid;
+  $str = "To view this account you have to upgrade your account.\n";
+  $str .= "Upgrade your account ";
+  $str .= l(t('Upgrade'), "user/$uid/edit");
+  $str .= ". Go back to home ";
+  $str .= l(t('Home'), 'node');
+  return ($str);
+}
+
+/**
+ * Implements hook_block_info().
+ *
+ */
+function photoshare_block_info() {
+  $blocks['photostream'] = array(
+    'info' => t('Selected Images'),
+    'status' => 1,
+    'region' => 'sidebar_first',
+  );
+  $blocks['categories'] = array(
+    'info' => t('Categories'),
+    'status' => 1,
+    'region' => 'sidebar_first',
+    'visibility' => BLOCK_VISIBILITY_LISTED,
+    'pages' => '<front>',
+  );
+  $blocks['albums'] = array(
+    'info' => t('Albums'),
+    'status' => 1,
+    'region' => 'sidebar_first',
+    'visibility' => BLOCK_VISIBILITY_LISTED,
+    'pages' => 'photostream/*',
+  );
+  return $blocks;
+}
+
+
+/**
+ * Implements hook_block_view().
+ *
+ * Generates the administrator-defined blocks for display.
+ */
+function  photoshare_block_view($delta = '') {
+  switch ($delta) {
+    // for photostream selected images block
+    case 'photostream':
+      $block['subject'] = t('Selected Images');
+      $block['content'] = _photoshare_get_selected_images();
+      break;
+    // for photostream categories block
+    case 'categories':
+      $block['subject'] = t('Categories');
+      $block['content'] = _photoshare_get_categories();
+      break;
+    // for photostream user albums block
+    case 'albums':
+      $block['subject'] = t('Albums');
+      $block['content'] = _photoshare_get_user_albums();
+      break;
+  }
+  return $block;
+}
+
+/**
+ * This function will get the selected images from the queue.
+ *
+ * @return function
+ *
+ * @see photoshare-selected-image.inc
+ */
+function _photoshare_get_selected_images() {
+  module_load_include('inc', 'photoshare', 'photoshare-selected-images');
+  return _photoshare_selected_images();
+}
+
+/**
+ * The function is used to display the list of categories in the block.
+ *
+ * @returns function _photoshare_list_categories.
+ */
+function _photoshare_get_categories() {
+  module_load_include('inc', 'photoshare', 'photoshare-categories');
+  return _photoshare_list_categories();
+}
+
+/**
+ * The function is used to display the list of categories in the block.
+ *
+ * @returns function _photoshare_list_user_albums.
+ */
+function _photoshare_get_user_albums() {
+  module_load_include('inc', 'photoshare', 'photoshare-user-albums');
+  return _photoshare_list_user_albums();
+}
+
+
+/**
+ * Implements hook_search_info function.
+ *
+ * Used to add a search tab called photoshare.
+ * In the default search page.
+ */
+function photoshare_search_info() {
+  return array(
+    array(
+      'title' => 'Photoshare',
+      'path' => 'photoshare',
+    ),
+  );
+}
+
+/**
+ * Function for hook_search_execute
+ *
+ * @param $keys
+ *
+ * @result $results
+ */
+function photoshare_search_execute($keys= '', $conditions='') {
+  $module = 'node';
+  $keyword = $keys . " " . "type:image";
+  $results = module_invoke($module, 'search_execute', $keyword);
+  return $results;
+}
+
+/**
+ * Implements hook_search_access().
+ *
+ * @return TRUE
+ */
+function photoshare_search_access() {
+  return TRUE;
+}
+
+/**
+ * Implements hook_search_page.
+ * Function for displaying search page
+ *
+ * It displays the search page with our customised theme.
+ *
+ * @param string $results
+ *
+ * @return $output
+ */
+function photoshare_search_page($results) {
+  $output = array();
+  $nodes = $results;
+  if(isset($nodes)) {
+    foreach ($nodes as $node) {
+      $items[] = array(
+        '#node' => $node['node'],
+        '#theme' => 'photostream_item',
+      );
+    }
+  }
+  if (!empty($items)) {
+    $output['search_results'] = array(
+      '#items' => $items,
+      '#attached' => array('css' => array(
+          drupal_get_path('module', 'photoshare') . '/css/photostream.css')),
+      '#theme' => 'photostream',
+    );
+  }
+  else {
+    $output['search_results'] = array (
+      '#markup' => t('Sorry, no images found!'),
+    );
+  }
+  return $output;
+}
+
+/**
+ * Implements hook_form_alter function.
+ *
+ * It will alters the already existing table.
+ *
+ * @param array $form.
+ * @param array $form_state.
+ * @param string $form_id.
+ *
+ * @return array $form.
+ */
+function photoshare_form_alter(&$form, &$form_state, $form_id) {
+  $options = variable_get('photoshare_user_roles', array());
+  global $user;
+  if ($form_id == 'user_register_form') {
+    $form['photoshare_user_roles'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Roles'),
+    );
+    $form['photoshare_user_roles']['photoshare_roles'] = array(
+      '#type' => 'checkboxes',
+      '#options' => $options,
+    );
+  }
+  if ($form_id == 'image_node_form') {
+    unset($form['field_ps_album']['und']['#options']);
+    $sql = "";
+    $sql .= "SELECT nid, title from {node} WHERE uid = :id AND type = :type";
+    $result = db_query($sql, array(':id' => $user->uid, ':type' => 'album'));
+    foreach ($result as $record) {
+      $selection_list[$record->nid] = $record->title;
+      $form['field_ps_album']['und']['#options'] = $selection_list;
+    }
+  }
+  if ($form_id == 'album_node_form') {
+    $roles = $user->roles;
+    if ((!in_array('premium_user', $roles)) && (!in_array('administrator', $roles))) {
+      unset($form['field_ps_premium']);
+    }
+  }
+  return $form;
+}
+
+/**
+ * Implements hook_user_presave function.
+ *
+ * @param array $edit
+ * @param object $account
+ * @param array $category
+ */
+function photoshare_user_presave(&$edit, $account, $category) {
+  if (isset($account->is_new) && !empty($account->is_new)) {
+    // To get the roles present in the db table role.
+    $roles = user_roles(TRUE);
+
+    // array_filter to take the values which is checked.
+    $edit['photoshare_roles'] = array_filter($edit['photoshare_roles']);
+
+    // To combine two array which have same keys.
+    $roles_set = array_intersect_key((array) $roles, $edit['photoshare_roles']);
+
+    if (isset($edit['roles'])) {
+      foreach ($roles_set as $key => $role) {
+        unset($edit['roles'][$key]);
+      }
+       $edit['roles'] = array_diff_key($edit['roles'], $roles_set) + $roles_set;
+    }
+    else {
+      $edit['roles'] = $roles_set;
+    }
+  }
+}
+
+/**
+ * Implements hook_user_insert function.
+ *
+ * @param array $edit
+ * @param object $account
+ * @param array $category
+ */
+function photoshare_user_insert(&$edit, $account, $category) {
+  $roles = $account->roles;
+  if (in_array('photographer', $roles) || in_array('administrator', $roles)) {
+    $album_name = "Default";
+    $node = new stdClass();
+    $node->type = 'album';
+    $node->title = $album_name;
+    $node->field_ps_album_description['und'][0]['value'] = 'Default album';
+    $node->field_ps_premium['und'][0]['value'] = 0;
+    $node->uid = $account->uid;
+    $node->language = 'und';
+    $node->status = 1;
+    node_save($node);
+  }
+}
+
+/**
+ * Implements template_preprocess() to prepare variables for use inside the
+ * photostream-item.tpl.php template file.
+ *
+ * @see photostream-item.tpl.php
+ */
+function template_preprocess_photostream_item(&$variables) {
+  global $user;
+  $node = $variables['element']['#node'];
+  $uid = $node->uid;
+  $path = image_style_url('ps-thumbnail', $node->field_ps_image['und'][0]['uri']);
+  $variables['nid'] = $node->nid;
+  $variables['title'] = $node->title;
+  $variables['image'] = $path;
+  $variables['user_name'] = $node->name;
+  $variables['user_id'] = $node->uid;
+  $variables['premium'] = 0;
+  if ($uid == $user->uid) {
+    $variables['remove_spam'] = 1;
+  }
+  else {
+    $variables['remove_spam'] = 0;  
+  }
+  if (isset($node->field_ps_album['und'][0]['target_id'])) {
+    $album_id = $node->field_ps_album['und'][0]['target_id'];
+    if (_photoshare_is_album_premium($album_id)) {
+      $variables['premium'] = 1;
+    }
+  }
+  $url = "node/" . $node->nid;
+  $variables['url'] = url($url);
+  $destination = request_path();
+  $spam_url = url("photoshare/report_spam/{$node->nid}", array(
+    'query' => array(
+      'destination' => $destination,
+    )
+  ));
+  $variables['spam_url'] = $spam_url;
+}
+
+/**
+ * Implements template_preprocess() to prepare variables for use inside the
+ * photostream.tpl.php template file.
+ *
+ * @see photostream.tpl.php
+ */
+function template_preprocess_photostream(&$variables) {
+  $items = $variables['photostream']['#items'];
+  $variables['items'] = $items;
+}
+
+/**
+ * Implements module_preprocess_node() 
+ * 
+ * The function is used to dispaly  the images added in the node 
+ *
+ * @param array $node.
+ */
+function photoshare_preprocess_node(&$node) {
+  if ($node['type'] == 'image' && $node['page'] == TRUE) {
+    $nid = $node['nid'];
+    $path = $node['content']['field_ps_image'][0]['#item']['uri'];
+    $file_info = pathinfo($path);
+    $extension = $file_info['extension'];
+    $width = $node['content']['field_ps_image'][0]['#item']['width'];
+    $height = $node['content']['field_ps_image'][0]['#item']['height'];
+    global $user;
+    $user = user_load($user->uid);
+    $roles = $user->roles;
+    $premium_user = in_array('premium_user', $roles);
+    $administrator = in_array('administrator', $roles);
+    if ($width >= 1200 || $height >= 1200) {
+      $path_large_image_size = 'photoshare/download/' . $nid . '/large';
+      $node['downloads'][] = l(t('Download large size'), $path_large_image_size);
+    }
+    if ($width >= 800 || $height >= 800) {
+      $path_medium_image_size = 'photoshare/download/' . $nid . '/medium';
+      $node['downloads'][] = l(('Download medium size'), $path_medium_image_size);
+    }
+    if ($width >= 400 || $height >= 400) {
+      $path_small_image_size = 'photoshare/download/' . $nid . '/small';
+      $node['downloads'][] = l(t('Download small size'), $path_small_image_size);
+    }
+    if ($premium_user || $administrator) {
+      $path_original_image_size = 'photoshare/download/' . $nid . '/original';
+      $node['downloads'][] = l(t('Download original size'), $path_original_image_size);
+    }
+    unset($node['content']['field_ps_image'][0]['#item']['width']);
+    unset($node['content']['field_ps_image'][0]['#item']['height']);
+    $node['content']['field_ps_image'][0]['#item']['uri'] = "public://photoshare/public/" . $node['nid'] . "_medium." .  
+    $extension;
+  }
+}
+
+/**
+ * To check whether the album is premium or not.
+ *
+ * @param integer $album_id
+ */
+function _photoshare_is_album_premium($album_id) {
+  $sql = "";
+  $sql .= "SELECT field_data_field_ps_premium.field_ps_premium_value ";
+  $sql .= "FROM field_data_field_ps_premium ";
+  $sql .= "JOIN node ";
+  $sql .= "ON field_data_field_ps_premium.entity_id=:album_id ";
+  $sql .= "WHERE field_data_field_ps_premium.revision_id=node.vid ";
+  $sql .= "AND field_data_field_ps_premium.deleted = :deleted ";
+  $album = db_query($sql, array(':album_id' => $album_id, ':deleted' => 0));
+  foreach ($album  as $key => $content) {
+    $premium_value = $content->field_ps_premium_value;
+    if ($premium_value == 1) {
+      return TRUE;
+    }
+    else {
+      return FALSE;
+    }
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function photoshare_theme() {
+  return array(
+    'photostream' => array(
+      'render element' => 'photostream',
+      'template' => 'photostream',
+    ),
+    'photostream_item' => array(
+      'render element' => 'element',
+      'template' => 'photostream-item',
+    ),
+    'photoshare_spam_reports' => array(
+      'variables' => array(
+        'spams' => 'NULL',
+      ),
+      'file' => 'photoshare-manage-spams.inc',
+    ),
+    'node__image' => array(
+      'template' =>  'node--image',
+      'variables' => array('node' => (object)array()),
+    ),
+  );
+}
+
+/**
+ * Implements hook_node_insert().
+ * The function is used to insert the medium and thumbnail size of the images added to public directory .
+ *
+ * @param $node.
+ *
+ * @returns function _photoshare_create_image_styles
+ */
+function photoshare_node_insert($node) {
+  if ($node->type == 'image') {
+    _photoshare_create_image_styles($node);
+  }
+}
+
+/**
+ * Implements hook_node_update().
+ * The function is used to insert the medium and thumbnail size of the images updated to public directory .
+ *
+ * @param $node.
+ *
+ * @returns function _photoshare_create_image_styles
+ */
+function photoshare_node_update($node) {
+  if ($node->type == 'image') {
+    _photoshare_create_image_styles($node);
+  }
+}
+
+/**
+ * The function is used to create the image with different image styles and the mentioned file format.
+ *
+ * @param $node
+ */
+function _photoshare_create_image_styles($node) {
+  $nid = $node->nid;
+  $fid = $node->field_ps_image['und'][0]['fid'];
+  $file = file_load($fid);
+  $file_uri = $file->uri;
+  $file_info = pathinfo($file_uri);
+  $extension = $file_info['extension'];
+  $derivative_uri_thumbnail = "public://photoshare/public/" . $node->nid . "_thumbnail." . $extension;
+  $derivative_uri_medium = "public://photoshare/public/" . $node->nid . "_medium." . $extension;
+  $source = $file->uri;
+  $medium = image_style_load('ps-medium-watermark');
+  $thumbnail = image_style_load('ps-thumbnail');
+  $create_medium_image =  image_style_create_derivative($medium, $source, $derivative_uri_medium);
+  $create_thumbnail_image = image_style_create_derivative($thumbnail, $source, $derivative_uri_thumbnail);
+}
+
+/**
+ * Function for implementing hook_views_api function.
+ */
+function photoshare_views_api() {
+  return array(
+    'api' => 3,
+  );
+}
+
+/**
+ * Implements hook_node_access function.
+ * Function for implementing node_access function.
+ *
+ * @param $node
+ * @param $op
+ * @param $account
+ */
+function photoshare_node_access($node, $op, $account) {
+  if ($op == 'view' && $node->type == 'image') {
+    if (!user_is_logged_in()) {
+      drupal_goto('user/login', array('query' => array(
+        'destination' => "node/{$node->nid}"
+      )));
+    }
+    else {
+      global $user;
+      $roles = $user->roles;
+      $album_id = $node->field_ps_album['und'][0]['target_id'];
+      $query = "SELECT field_ps_premium_value FROM {field_data_field_ps_premium} WHERE entity_id=:album_id";
+      $result = db_query($query, array(':album_id' => $album_id));
+      $premium = $result->fetchAssoc();
+      $premium_value =$premium['field_ps_premium_value'];
+      if ($premium_value == 1 && !(in_array('premium_user', $roles))) {
+        drupal_goto('photoshare/upgrade');
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_trigger_info().
+ *
+ */
+function photoshare_trigger_info() {
+  return array(
+    'photoshare' => array(
+      'photoshare_admin_accepted_spam' => array(
+        'label' => t('After the admin accepts the spam'),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_action_info_alter().
+ */
+function photoshare_action_info_alter(&$actions) {
+  foreach ($actions as $key => $action) {
+    if (in_array('node', $action)) {
+      $actions[$key]['triggers'][] = 'photoshare_admin_accepted_spam';
+    }
+  }
+}

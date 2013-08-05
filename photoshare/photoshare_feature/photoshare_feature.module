@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the photoshare_feature feature.
+ */
+
+include_once 'photoshare_feature.features.inc';
